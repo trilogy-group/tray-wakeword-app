@@ -1,1 +1,2 @@
-hello trilogy
+hello trilogy -- for windows (custom trained .ppn)
+computer -- for linux/mac (built-in Porcupine keyword, no training needed)

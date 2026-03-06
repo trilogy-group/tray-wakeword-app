@@ -6,11 +6,25 @@ let tray = null;
 let mainWindow = null;
 let wakeWordListener = null;
 
+const logFile = app.isPackaged
+  ? path.join(path.dirname(process.execPath), "wakeword-debug.log")
+  : path.join(__dirname, "wakeword-debug.log");
+function debugLog(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  fs.appendFileSync(logFile, line);
+  console.log(msg);
+}
+
 function getAssetPath(filename) {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, filename);
   }
   return path.join(__dirname, filename);
+}
+
+function getPlatformTag() {
+  const tags = { win32: "windows", linux: "linux", darwin: "mac" };
+  return tags[process.platform] || process.platform;
 }
 
 function getModelPath() {
@@ -23,11 +37,26 @@ function getModelPath() {
     : [];
 
   if (files.length === 0) return null;
-  return path.join(modelsDir, files[0]);
+
+  const platformTag = getPlatformTag();
+  const platformModel = files.find((f) => f.includes(platformTag));
+
+  if (!platformModel) {
+    console.log(`Platform: ${process.platform} -> tag: ${platformTag}, no matching .ppn found`);
+    return null;
+  }
+
+  console.log(`Platform: ${process.platform} -> tag: ${platformTag}, model: ${platformModel}`);
+  return path.join(modelsDir, platformModel);
 }
 
 function loadAccessKey() {
-  const envPath = path.join(__dirname, ".env");
+  const envPath = app.isPackaged
+    ? path.join(process.resourcesPath, ".env")
+    : path.join(__dirname, ".env");
+
+  console.log(`Looking for .env at: ${envPath} (exists: ${fs.existsSync(envPath)})`);
+
   if (!fs.existsSync(envPath)) return null;
 
   const content = fs.readFileSync(envPath, "utf-8");
@@ -120,22 +149,52 @@ async function startWakeWordListener() {
 
   if (!modelPath) {
     console.log(
-      "No .ppn model file found in models/ directory. Wake word detection disabled.\n" +
-        "Train your wake word at https://console.picovoice.ai/"
+      "No .ppn model for this platform in models/ directory. Falling back to built-in keyword."
     );
-    return;
   }
 
   try {
-    const { Porcupine } = require("@picovoice/porcupine-node");
-    const { PvRecorder } = require("@picovoice/pvrecorder-node");
+    debugLog(`app.isPackaged: ${app.isPackaged}`);
+    debugLog(`__dirname: ${__dirname}`);
+    debugLog(`process.resourcesPath: ${process.resourcesPath}`);
 
-    const porcupine = new Porcupine(accessKey, [modelPath], [0.5]);
+    const { Porcupine, BuiltinKeyword, getBuiltinKeywordPath } = require("@picovoice/porcupine-node");
+    debugLog("require @picovoice/porcupine-node OK");
+    const { PvRecorder } = require("@picovoice/pvrecorder-node");
+    debugLog("require @picovoice/pvrecorder-node OK");
+
+    const FALLBACK_KEYWORD = "COMPUTER";
+    let porcupine;
+    let activeKeyword;
+
+    const porcupineOptions = {};
+    if (app.isPackaged) {
+      const porcupineDir = path.dirname(require.resolve("@picovoice/porcupine-node/package.json"));
+      const pvModelFile = path.join(porcupineDir, "lib", "common", "porcupine_params.pv");
+      porcupineOptions.modelPath = pvModelFile.replace("app.asar", "app.asar.unpacked");
+      debugLog(`Porcupine internal model path (unpacked): ${porcupineOptions.modelPath}`);
+    }
+
+    if (modelPath) {
+      debugLog(`Initializing Porcupine with custom model: ${modelPath}`);
+      debugLog(`Model file exists: ${fs.existsSync(modelPath)}`);
+      porcupine = new Porcupine(accessKey, [modelPath], [0.5], porcupineOptions);
+      activeKeyword = "hello trilogy";
+    } else {
+      debugLog(`No .ppn model for this platform, using built-in keyword: ${FALLBACK_KEYWORD}`);
+      const builtinPath = getBuiltinKeywordPath(BuiltinKeyword[FALLBACK_KEYWORD]);
+      porcupine = new Porcupine(accessKey, [builtinPath], [0.5], porcupineOptions);
+      activeKeyword = FALLBACK_KEYWORD.toLowerCase();
+    }
+    debugLog(`Porcupine initialized successfully (keyword: "${activeKeyword}")`);
+
+    const devices = PvRecorder.getAvailableDevices();
+    debugLog(`Available audio devices: ${devices.join(", ")}`);
 
     const recorder = new PvRecorder(porcupine.frameLength);
     recorder.start();
 
-    console.log(`Listening for wake word (model: ${path.basename(modelPath)})...`);
+    debugLog(`Listening for wake word "${activeKeyword}"...`);
 
     let running = true;
 
@@ -144,13 +203,13 @@ async function startWakeWordListener() {
         const frame = await recorder.read();
         const index = porcupine.process(frame);
         if (index >= 0) {
-          console.log("Wake word detected!");
+          debugLog("Wake word detected!");
           showWindow();
         }
       }
     };
 
-    listen().catch((err) => console.error("Wake word listener error:", err));
+    listen().catch((err) => debugLog(`Wake word listener error: ${err.message}\n${err.stack}`));
 
     wakeWordListener = {
       stop: () => {
@@ -158,11 +217,12 @@ async function startWakeWordListener() {
         recorder.stop();
         recorder.release();
         porcupine.release();
-        console.log("Wake word listener stopped.");
+        debugLog("Wake word listener stopped.");
       },
     };
   } catch (err) {
-    console.error("Failed to start wake word listener:", err.message);
+    debugLog(`FAILED to start wake word listener: ${err.message}`);
+    debugLog(`Full error: ${err.stack || err}`);
   }
 }
 

@@ -27,15 +27,36 @@
         "filter": [
           "**/*.ppn"
         ]
+      },
+      {
+        "from": "assets/",
+        "to": "assets/",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": ".env",
+        "to": ".env"
       }
     ],
+    "asarUnpack": [
+      "node_modules/@picovoice/**/*"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.png"
+      "target": "zip",
+      "icon": "assets/icon.png",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "This app needs microphone access to listen for the wake word."
+      }
     },
     "linux": {
       "target": [
@@ -45,7 +66,10 @@
       "icon": "assets/icon.png"
     }
   },
-  "author": "",
+  "author": {
+    "name": "Trilogy",
+    "email": "dev@trilogy.com"
+  },
   "license": "MIT",
   "devDependencies": {
     "electron": "^40.8.0",
