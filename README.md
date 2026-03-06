@@ -79,6 +79,23 @@ npm run build:linux  # Linux (.AppImage + .deb)
 
 Output goes to the `dist/` folder.
 
+### Upload Mac zip to GitHub release (v1.0.0)
+
+To build the Mac zip (with mic permission) and upload it to [v1.0.0](https://github.com/trilogy-group/tray-wakeword-app/releases/tag/v1.0.0):
+
+1. Ensure you have a `.env` with `PORCUPINE_ACCESS_KEY` (and `models/` with your `.ppn` if needed).
+2. Install [GitHub CLI](https://cli.github.com/) and run `gh auth login` for the `trilogy-group/tray-wakeword-app` repo.
+3. From the repo root:
+   ```bash
+   chmod +x scripts/upload-release-mac.sh
+   npm run release:mac
+   ```
+   Or manually:
+   ```bash
+   npm run build:mac
+   gh release upload v1.0.0 "dist/"*.zip --clobber
+   ```
+
 ## Project structure
 
 ```
@@ -94,6 +111,10 @@ tray-wakeword-app/
   .env             # Your Porcupine access key (not committed)
   .env.example     # Template for .env
 ```
+
+## Platforms (Windows, macOS, Linux)
+
+The same code and build process work on all three. The `postinstall` script only runs on **macOS** (to allow microphone access there); on **Windows** and **Linux** it does nothing, so behavior is unchanged from before.
 
 ## Troubleshooting
 

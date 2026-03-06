@@ -4,11 +4,13 @@
   "description": "Cross-platform system tray app with offline wake word detection",
   "main": "main.js",
   "scripts": {
+    "postinstall": "node scripts/patch-electron-mac-mic.js",
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:linux": "electron-builder --linux",
+    "release:mac": "npm run build:mac && ./scripts/upload-release-mac.sh"
   },
   "build": {
     "appId": "com.trilogy.wakeword",
@@ -54,6 +56,8 @@
     "mac": {
       "target": "zip",
       "icon": "assets/icon.png",
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "This app needs microphone access to listen for the wake word."
       }

@@ -6,12 +6,22 @@ let tray = null;
 let mainWindow = null;
 let wakeWordListener = null;
 
-const logFile = app.isPackaged
-  ? path.join(path.dirname(process.execPath), "wakeword-debug.log")
-  : path.join(__dirname, "wakeword-debug.log");
+let logFile = null;
+function getLogFile() {
+  if (!logFile) {
+    try {
+      logFile = app.isPackaged
+        ? path.join(app.getPath("userData"), "wakeword-debug.log")
+        : path.join(__dirname, "wakeword-debug.log");
+    } catch {
+      logFile = path.join(__dirname, "wakeword-debug.log");
+    }
+  }
+  return logFile;
+}
 function debugLog(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(logFile, line);
+  try { fs.appendFileSync(getLogFile(), line); } catch {}
   console.log(msg);
 }
 
@@ -182,7 +192,11 @@ async function startWakeWordListener() {
       activeKeyword = "hello trilogy";
     } else {
       debugLog(`No .ppn model for this platform, using built-in keyword: ${FALLBACK_KEYWORD}`);
-      const builtinPath = getBuiltinKeywordPath(BuiltinKeyword[FALLBACK_KEYWORD]);
+      let builtinPath = getBuiltinKeywordPath(BuiltinKeyword[FALLBACK_KEYWORD]);
+      if (app.isPackaged) {
+        builtinPath = builtinPath.replace("app.asar", "app.asar.unpacked");
+      }
+      debugLog(`Built-in keyword path: ${builtinPath} (exists: ${fs.existsSync(builtinPath)})`);
       porcupine = new Porcupine(accessKey, [builtinPath], [0.5], porcupineOptions);
       activeKeyword = FALLBACK_KEYWORD.toLowerCase();
     }
@@ -238,9 +252,15 @@ app.on("window-all-closed", () => {
 });
 
 app.whenReady().then(() => {
+  debugLog(`App ready. isPackaged=${app.isPackaged}`);
+  debugLog(`userData=${app.getPath("userData")}`);
+  debugLog(`resourcesPath=${process.resourcesPath}`);
+  debugLog(`execPath=${process.execPath}`);
+  debugLog(`logFile=${logFile}`);
   createTray();
+  debugLog("Tray created. Starting wake word listener...");
   startWakeWordListener();
-  console.log("App running in system tray. Right-click the tray icon for options.");
+  debugLog("App running in system tray.");
 });
 
 app.on("before-quit", () => {
