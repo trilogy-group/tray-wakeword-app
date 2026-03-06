@@ -71,7 +71,7 @@ Or target a specific platform:
 
 ```bash
 npm run build:win    # Windows (.exe installer)
-npm run build:mac    # macOS (.dmg)
+npm run build:mac    # macOS (.zip)
 npm run build:linux  # Linux (.AppImage + .deb)
 ```
 
@@ -101,3 +101,26 @@ tray-wakeword-app/
 - **"No .ppn model file found"** -- Place your trained `.ppn` file in the `models/` folder
 - **Wake word not detecting** -- Speak clearly and at normal volume. Try adjusting sensitivity in `main.js` (the `0.5` value in the Porcupine constructor)
 - **Tray icon not visible** -- On Linux, you may need a system tray extension (e.g., AppIndicator for GNOME)
+
+### macOS: tray icon shows but no mic / no listening
+
+On macOS Catalina+, the app needs explicit microphone permission.
+
+**For `npm start` (development):**
+
+1. The `postinstall` script automatically patches the Electron binary's `Info.plist` with the microphone usage description.
+2. Run `npm install` to apply the patch, then `npm start`.
+3. macOS should show a microphone permission prompt -- click **Allow**.
+4. If no prompt appears, go to **System Settings → Privacy & Security → Microphone** and enable **Electron**.
+
+**For the built app (installer / `.zip`):**
+
+1. The `NSMicrophoneUsageDescription` is already included in the build config.
+2. On first launch, macOS should prompt for mic access -- click **Allow**.
+3. If no prompt appears, go to **System Settings → Privacy & Security → Microphone** and enable **WakeWordApp**.
+4. Since the app is unsigned, you may need to right-click → **Open** to bypass Gatekeeper on first launch.
+
+**Checking status:**
+
+- Hover the tray icon: it says **"listening for 'hello trilogy'"** (or **"listening for 'computer'"** on platforms without a custom `.ppn` model) when the mic is active, or **"mic not active"** if something went wrong.
+- Check `wakeword-debug.log` for detailed error info (located in the app's user data directory for packaged builds, or the project root for development).

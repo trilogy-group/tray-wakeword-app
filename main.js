@@ -6,12 +6,17 @@ let tray = null;
 let mainWindow = null;
 let wakeWordListener = null;
 
-const logFile = app.isPackaged
-  ? path.join(path.dirname(process.execPath), "wakeword-debug.log")
-  : path.join(__dirname, "wakeword-debug.log");
+function getLogFile() {
+  if (!app.isPackaged) return path.join(__dirname, "wakeword-debug.log");
+  try {
+    return path.join(app.getPath("userData"), "wakeword-debug.log");
+  } catch {
+    return path.join(path.dirname(process.execPath), "wakeword-debug.log");
+  }
+}
 function debugLog(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(logFile, line);
+  try { fs.appendFileSync(getLogFile(), line); } catch {}
   console.log(msg);
 }
 
@@ -131,8 +136,16 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("WakeWord App");
+  tray.setToolTip("WakeWord App - mic not active");
   tray.setContextMenu(contextMenu);
+}
+
+function updateTrayTooltip(keyword) {
+  if (tray && !tray.isDestroyed()) {
+    tray.setToolTip(keyword
+      ? `WakeWord App - listening for '${keyword}'`
+      : "WakeWord App - mic not active");
+  }
 }
 
 async function startWakeWordListener() {
@@ -182,7 +195,11 @@ async function startWakeWordListener() {
       activeKeyword = "hello trilogy";
     } else {
       debugLog(`No .ppn model for this platform, using built-in keyword: ${FALLBACK_KEYWORD}`);
-      const builtinPath = getBuiltinKeywordPath(BuiltinKeyword[FALLBACK_KEYWORD]);
+      let builtinPath = getBuiltinKeywordPath(BuiltinKeyword[FALLBACK_KEYWORD]);
+      if (app.isPackaged) {
+        builtinPath = builtinPath.replace("app.asar", "app.asar.unpacked");
+      }
+      debugLog(`Built-in keyword path: ${builtinPath} (exists: ${fs.existsSync(builtinPath)})`);
       porcupine = new Porcupine(accessKey, [builtinPath], [0.5], porcupineOptions);
       activeKeyword = FALLBACK_KEYWORD.toLowerCase();
     }
@@ -195,6 +212,7 @@ async function startWakeWordListener() {
     recorder.start();
 
     debugLog(`Listening for wake word "${activeKeyword}"...`);
+    updateTrayTooltip(activeKeyword);
 
     let running = true;
 
@@ -223,6 +241,11 @@ async function startWakeWordListener() {
   } catch (err) {
     debugLog(`FAILED to start wake word listener: ${err.message}`);
     debugLog(`Full error: ${err.stack || err}`);
+    if (process.platform === "darwin") {
+      debugLog("On macOS, check System Settings > Privacy & Security > Microphone and ensure the app is allowed.");
+    }
+    debugLog(`See log file for details: ${getLogFile()}`);
+    updateTrayTooltip(null);
   }
 }
 
