@@ -1,0 +1,20 @@
+{
+    "name": "wakeword",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "remoteUser": "node",
+    "containerUser": "node",
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "bradlc.vscode-tailwindcss",
+                "Angular.ng-template"
+            ]
+        }
+    }
+}
