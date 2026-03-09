@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# Virtual environment
+venv/
+
+# PyInstaller build artifacts
+build/
+dist/
+for_windows/build/
+for_windows/dist/
+for_windows/installer_output/
+for_linux/build/
+for_linux/dist/
+for_mac/build/
+for_mac/dist/
+
+# Old build leftovers
+build-linux/
+dist-linux/
+JarvisWakeWord-x86_64
+# Downloaded models (fetched at runtime)
+models/
+
+# AppImage builds
+*.AppImage
+
+# OS files
+.DS_Store
+Thumbs.db
